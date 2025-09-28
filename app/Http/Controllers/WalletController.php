@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\UserResource;
+use App\Mail\SendBalanceAdMail;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class WalletController extends Controller
 {
@@ -30,6 +32,9 @@ class WalletController extends Controller
     $amountInCents = (int) round($request->amount * 100); // تحويل لـ سنتات
 
     $user->deposit($amountInCents);
+
+   
+            Mail::to($user->email)->send(new SendBalanceAdMail($request->amount));
 
     return response()->json([
         'user' => new UserResource($user),

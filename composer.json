@@ -11,6 +11,7 @@
     "require": {
         "php": "^8.2",
         "bavix/laravel-wallet": "^11.4",
+        "googleads/google-ads-php": "^31.0",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",

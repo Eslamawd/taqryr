@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PlanSubscripeController;
 use App\Http\Controllers\SubscripeController;
@@ -15,7 +16,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 });
 
-
+      Route::post('/contact', [ContactController::class, 'store']);
       Route::get('/plan-subscripes', [PlanSubscripeController::class, 'index']);
 
 

@@ -23,7 +23,7 @@ class UserResource extends JsonResource
             'phone_verified' => $this->hasVerifiedPhone(),
             'role'  => $this->getRoleNames()->first() ?: 'user',
             'balance' => $this->balanceInt / 100,
-            'subscripe'=> $this->subscripe || null,
+            'subscripe'=> $this->subscripe ?? null,
 
         ];
     }

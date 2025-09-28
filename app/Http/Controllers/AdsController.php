@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SendPriceAdsMail;
 use App\Models\Ad;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AdsController extends Controller
 {
@@ -19,7 +21,9 @@ class AdsController extends Controller
     }
         // التحقق من المدخلات
         $validated = $request->validate([
-            'platform'       => 'required|in:snap,meta,google,tiktok',
+            
+            'platform'        => 'required|array|min:1',
+            'platform.*'      => 'in:snap,meta,google,tiktok',
             'name'           => 'required|string|max:255',
             'objective'      => 'nullable|string|max:100',
             'budget'         => 'required|numeric|min:1',
@@ -34,21 +38,51 @@ class AdsController extends Controller
             'targets.*.region'    => 'nullable|array',
             'targets.*.languages' => 'nullable|array',
             'targets.*.os_type'   => 'nullable|array',
-            'targets.*.interests'=> 'required|array|min:1',
+            'targets.*.interests'=> 'nullable|array',
         ]);
 
+        $user = auth()->user();
         $userId = auth()->id();
+        $price = $validated['budget'];
 
+        $platformsCount = count($validated['platform']);
+        $totalBudget = $validated['budget'] * $platformsCount; // إجمالي الباجت
+         $totalInCents = (int) round($totalBudget * 100);
+
+        
+    $balance = $user->balanceInt; // الرصيد بالسنت
+
+    if ($balance < $totalInCents) {
+        return response()->json([
+            'message' => 'Your wallet balance is insufficient.',
+        ], 422);
+    }
+
+    $uploadedFiles = [];
+
+     foreach ($validated['files'] as $file) {
+                $path = $file->store('ads', 'public');
+                $type = str_starts_with($file->getMimeType(), 'video') ? 'VIDEO' : 'IMAGE';
+
+                 $uploadedFiles[] = [
+                'path' => $path,
+                'type' => $type,
+            ];
+            }
         // wrap inside transaction
         DB::beginTransaction();
+        
 
         try {
-         
-
             // إنشاء الإعلان
+
+            
+        $ads = [];
+
+        foreach ($validated['platform'] as $platform) {
             $ad = Ad::create([
                 'user_id'       => $userId,
-                'platform'      => $validated['platform'],
+                'platform'      => $platform,
                 'name'          => $validated['name'],
                 'objective'     => $validated['objective'] ?? null,
                 'budget'        => $validated['budget'],
@@ -57,22 +91,16 @@ class AdsController extends Controller
                 'end_date'      => $validated['end_date'] ?? null,
             ]);
 
-             foreach ($validated['files'] as $file) {
-                $path = $file->store('ads', 'public');
-
-                $type = str_starts_with($file->getMimeType(), 'video') ? 'VIDEO' : 'IMAGE';
-
+             foreach ($uploadedFiles as $file) {
+           
                  $ad->creative()->create([
-                    'file_path'  => $path,
-                    'platform'   => $validated['platform'],
-                    'type'       => $type,
+                    'file_path'  => $file['path'],
+                    'platform'   => $platform,
+                    'type'       => $file['type'],
                 ]);
 
                
             }
-
-
-
             // حفظ الاستهدافات
             foreach ($validated['targets'] as $target) {
                             if (isset($target['age_group'])) {
@@ -92,16 +120,23 @@ class AdsController extends Controller
                         'languages' => $target['languages'] ?? [],
                         'os_type'   => $target['os_type'] ?? [],
                     ]),
-                   'interests' => json_encode($target['interests']),
-                    
+                   'interests' => json_encode($target['interests']) ?? null, 
                 ]);
+
             }
+            $ads[] = $ad;
+        }
 
             DB::commit();
-
+            
+         $user->withdraw($totalInCents);
+            // إرسال الميل بعد الخصم
+        foreach ($ads as $ad) {
+            Mail::to($user->email)->send(new SendPriceAdsMail($ad));
+        }
             return response()->json([
                 'status' => 'success',
-                'ad' => $ad->load('creative', 'target'),
+                'ad' => $ads,
             ], 201);
 
         } catch (\Exception $e) {

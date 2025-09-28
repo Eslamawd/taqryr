@@ -64,6 +64,13 @@ return [
     'ad_account_id' => env('FB_AD_ACCOUNT_ID'), // بدون "act_" هنا
 ],
 
+'google_ads' => [
+    'developer_token' => env('GOOGLE_DEVELOPER_TOKEN'),
+    'login_customer_id' => env('GOOGLE_LOGIN_CUSTOMER_ID'),
+    'linked_customer_id' => env('GOOGLE_LINKED_CUSTOMER_ID'),
+],
+
+
     'tiktok' => [  
     'app_id'      => env('TIKTOK_APP_ID'),
     'secret'      => env('TIKTOK_SECRET'),

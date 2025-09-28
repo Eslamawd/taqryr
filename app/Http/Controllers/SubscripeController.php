@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SendSubMail;
 use App\Models\PlanSubscripe;
 use App\Models\Subscripe;
+use Carbon\Carbon;
 use Illuminate\Container\Attributes\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class SubscripeController extends Controller
@@ -16,16 +20,17 @@ class SubscripeController extends Controller
         $subscriptions = Subscripe::latest()->paginate(10);
         return response()->json(['subscriptions' => $subscriptions]);
     }
+
 public function store(Request $request, $id)
-{ 
+{
     $user = auth()->user();
     $plan = PlanSubscripe::findOrFail($id);
 
     $price = $plan->price;
     $durationDays = $plan->duration_days;
 
-    $totalInCents = (int) round($price * 100); // السعر بالسنت
-    $balance = $user->balanceInt; // الرصيد بالسنت
+    $totalInCents = (int) round($price * 100); 
+    $balance = $user->balanceInt; 
 
     if ($balance < $totalInCents) {
         return response()->json([
@@ -33,50 +38,57 @@ public function store(Request $request, $id)
         ], 422);
     }
 
-    // خصم من المحفظة
-   
+    DB::beginTransaction();
 
-    $subscription = $user->subscripe;
+    try {
+        $subscription = $user->subscripe;
 
-    if ($subscription) {
-        // لو الاشتراك لسه شغال نزود على نهايته
-        if ($subscription->end_at > now()) {
-            $startsAt = $subscription->end_at;
+        if ($subscription) {
+            // لو الاشتراك لسه شغال نزود على نهايته
+            $startsAt = $subscription->end_date > now()
+                ? Carbon::parse($subscription->end_date)
+                : now();
+
+            $endsAt = $startsAt->copy()->addDays($durationDays);
+
+            $subscription->update([
+                'plan'       => $plan->name,
+                'price'      => $price,
+                'start_date' => $startsAt,
+                'end_date'   => $endsAt,
+            ]);
         } else {
-            // لو منتهي نبدأ من دلوقتي
             $startsAt = now();
+            $endsAt = $startsAt->copy()->addDays($durationDays);
+
+            $subscription = Subscripe::create([
+                'user_id'    => $user->id,
+                'plan'       => $plan->name,
+                'price'      => $price,
+                'start_date' => $startsAt,
+                'end_date'   => $endsAt,
+            ]);
         }
 
-        $endsAt = $startsAt->copy()->addDays($durationDays);
+        // خصم الرصيد
+        $user->withdraw($totalInCents);
 
-        // تحديث نفس الاشتراك
-        $subscription->updateOrCreate([
-            'plan' => $plan->name,
-            'price'   => $price,
-            'total'   => $price,
-            'start_date' => $startsAt,
-            'end_date' => $endsAt,
-        ]);
-         $user->withdraw($totalInCents);
-    } else {
-        // لو مفيش اشتراك جديد
-        $startsAt = now();
-        $endsAt = $startsAt->copy()->addDays($durationDays);
+        DB::commit();
 
-        $subscription = Subscripe::create([
-            'user_id' => $user->id,
-            'plan' => $plan->name,
-            'price'   => $price,
-            'total'   => $price,
-            'start_date' => $startsAt,
-            'end_date' => $endsAt,
-        ]);
-         $user->withdraw($totalInCents);
+        // إرسال الميل بعد نجاح العملية
+        Mail::to($user->email)->send(new SendSubMail($subscription));
+
+        return response()->json([
+            'message'      => 'Subscription renewed successfully',
+            'subscription' => $subscription,
+        ], 201);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Something went wrong: ' . $e->getMessage(),
+        ], 500);
     }
-    return response()->json([
-        'message'      => 'Subscription Renewed successfully',
-        'subscription' => $subscription,
-    ], 201);
 }
 
 public function count(){

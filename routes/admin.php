@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdsCreateController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PlanSubscripeController;
 use App\Http\Controllers\SubscripeController;
@@ -35,6 +36,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('subscriptions', [SubscripeController::class, 'index']);
             Route::get('subscriptions/count', [SubscripeController::class, 'count']);
             Route::get('subscriptions/revenue', [SubscripeController::class, 'getRevenue']);
+
+            Route::get('contact', [ContactController::class, 'index']); 
 
     });
 });
