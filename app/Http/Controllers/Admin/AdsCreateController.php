@@ -13,7 +13,7 @@ class AdsCreateController extends Controller
     //
        public function index()
     {
-        $ads = Ad::with(['target', 'creative'])->paginate(6);
+        $ads = Ad::with(['target', 'creative', 'user'])->latest()->paginate(6);
         return response()->json([
         'ads' => $ads,
     ]);
@@ -24,11 +24,16 @@ class AdsCreateController extends Controller
         if ($ad->platform === 'snap') {
             SnapchatCreateAds::dispatch($ad);
         } else if ($ad->platform === 'meta') {
-
         MetaCreateAdsJob::dispatch($ad);
         }
         
 
         return response()->json(['message'=>'Created New Ads Sucsess']);
+    }
+
+    public function destroy (Request $request, $id) {
+
+        $ad = Ad::findOrFail($id);
+        
     }
 }

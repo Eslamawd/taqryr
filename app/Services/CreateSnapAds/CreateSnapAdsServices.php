@@ -1,10 +1,14 @@
 <?php
 namespace App\Services\CreateSnapAds;
 
+use App\Mail\SendPriceAdsMail;
 use App\Models\Ad;
+use App\Models\User;
 use Carbon\Carbon;
+use App\Services\CreateSnapAds\SnapTargetingBuilder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class CreateSnapAdsServices
@@ -32,12 +36,22 @@ public function __construct(Ad $ad, AdsService $adsService, CampaignsService $ca
 }
 
     public function newSnapAd () {
+
+        $startDate = Carbon::parse($this->ad->start_date);
+        $endDate   = Carbon::parse($this->ad->end_date);
+
+        $diffDays = $startDate->diffInDays($endDate);
+
+        $daily_budget = $this->ad->budget / $diffDays;
+        
+        $user = $this->ad->user;
+
      $responseCampaign =   $this->campaignsService->createCampaign($this->adAccountId,[
          
       "name"=> $this->ad->name,
       "objective"=> "WEBSITE_CONVERSIONS",
       "status"=> "ACTIVE",
-      "daily_budget_micro"=> $this->ad->budget * 1000000,
+      "daily_budget_micro"=> $daily_budget * 1000000,
       "start_time"=> $this->ad->start_date ,
       "end_time"=> $this->ad->end_date,
      ]);
@@ -45,8 +59,22 @@ public function __construct(Ad $ad, AdsService $adsService, CampaignsService $ca
     $campaignId = $responseCampaign['campaigns'][0]['campaign']['id'] ?? null;
 
     Log::info("campaignId: {$campaignId}");
+$options = array_merge(
+    [
+        "country"   => $this->ad->target->country,
+        "gender"    => $this->ad->target->gender,
+        "age_min"   => $this->ad->target->age_min,
+        "interests" => $this->ad->target->interests ?? [],
+    ],
+    is_string($this->ad->target->options) 
+        ? json_decode($this->ad->target->options, true) 
+        : ($this->ad->target->options ?? [])
+);
 
-  
+
+$builder   = new SnapTargetingBuilder($options);
+$targeting = $builder->build();
+
      $responseAdSquad =   $this->adSquadsService->createAdSquad($campaignId,
     [
       
@@ -60,14 +88,7 @@ public function __construct(Ad $ad, AdsService $adsService, CampaignsService $ca
         "delivery_constraint"=> "LIFETIME_BUDGET",
         "pixel_id"=> null,
         "campaign_id"=> $campaignId,
-      "targeting" => [
-    "geos" => array_merge(
-        [
-            ["country_code" => strtolower($this->ad->target->country)],
-        ],
-    )
-],
-
+      "targeting" => $targeting,
         "cap_and_exclusion_config"=> [
           "frequency_cap_config"=> [
             [
@@ -85,7 +106,7 @@ public function __construct(Ad $ad, AdsService $adsService, CampaignsService $ca
         "optimization_goal"=> "IMPRESSIONS",
         "reach_goal"=> 100000,
         "impression_goal"=> 500000,
-        "lifetime_budget_micro"=> $this->ad->budget * 1000000,
+        "lifetime_budget_micro"=> $daily_budget * 1000000,
         "reach_and_frequency_status"=> "PENDING"
      
     ]);
@@ -170,6 +191,13 @@ public function __construct(Ad $ad, AdsService $adsService, CampaignsService $ca
           $this->ad->update([
               'platform_ad_id' => $adId
           ]);
+
+           $totalInCents = (int) round($this->ad->budget * 100);
+           $user->withdraw($totalInCents);
+          
+            Mail::to($user->email)->send(new SendPriceAdsMail($this->ad));
+
+
 }
 
 

@@ -129,11 +129,8 @@ class AdsController extends Controller
 
             DB::commit();
             
-         $user->withdraw($totalInCents);
+       
             // إرسال الميل بعد الخصم
-        foreach ($ads as $ad) {
-            Mail::to($user->email)->send(new SendPriceAdsMail($ad));
-        }
             return response()->json([
                 'status' => 'success',
                 'ad' => $ads,
