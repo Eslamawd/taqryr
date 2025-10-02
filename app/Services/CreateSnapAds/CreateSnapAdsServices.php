@@ -156,8 +156,8 @@ $targeting = $builder->build();
               "top_snap_media_id" => $mediaId,
               "type" => "SNAP_AD",
               "profile_properties" => ["profile_id" => $this->profileId],
-              "brand_name" => $this->ad->name,
-              "headline" => $this->ad->objective,
+              "brand_name" => $this->ad->brand->name_brand,
+              "headline" => $this->ad->brand->headline,
               "shareable" => true,
           ]);
 

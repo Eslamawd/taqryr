@@ -51,6 +51,8 @@ class PlanSubscripeController extends Controller
             'duration_days' => 'sometimes|required|integer|min:1',
             'features' => 'nullable|array',
             'features.*.title' => 'string|max:255',
+            'features.*.title_ar' => 'string|max:255',
+
         ]);
 
         $plan->update($validated);

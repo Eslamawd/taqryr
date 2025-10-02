@@ -25,6 +25,8 @@ class AdsController extends Controller
             'platform'        => 'required|array|min:1',
             'platform.*'      => 'in:snap,meta,google,tiktok',
             'name'           => 'required|string|max:255',
+            'name_brand'           => 'required|string|max:255',
+            'headline'           => 'required|string|max:255',
             'objective'      => 'nullable|string|max:100',
             'budget'         => 'required|numeric|min:1',
             'start_date'     => 'nullable|date',
@@ -89,6 +91,12 @@ class AdsController extends Controller
                 'status'        => 'pending',
                 'start_date'    => $validated['start_date'] ?? null,
                 'end_date'      => $validated['end_date'] ?? null,
+            ]);
+
+            $ad->brand()->create([
+                'name_brand' => $validated['name_brand'],
+                'headline' =>$validated['headline'],
+
             ]);
 
              foreach ($uploadedFiles as $file) {

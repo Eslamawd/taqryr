@@ -41,6 +41,10 @@ class Ad extends Model
     {
         return $this->hasOne(AdTarget::class);
     }
+    public function brand()
+    {
+        return $this->hasOne(Brand::class);
+    }
     public function stats()
     {
         return $this->hasOne(AdStat::class);

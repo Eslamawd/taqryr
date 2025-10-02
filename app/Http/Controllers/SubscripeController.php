@@ -54,7 +54,6 @@ public function store(Request $request, $id)
             $subscription->update([
                 'plan'       => $plan->name,
                 'price'      => $price,
-                'start_date' => $startsAt,
                 'end_date'   => $endsAt,
             ]);
         } else {
